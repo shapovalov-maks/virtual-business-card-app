@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 const Register = () => {
@@ -16,7 +15,8 @@ const Register = () => {
     }
 
     try {
-      const response = await fetch('/register', {
+      // Указываем полный URL для обращения к backend-серверу
+      const response = await fetch('http://localhost:5001/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

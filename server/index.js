@@ -1,34 +1,33 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const profileRoutes = require('./routes/profile');
-const morgan = require('morgan');
-const logger = require('./logger');
-require('dotenv').config();  // Added dotenv for environment variable support
+const cors = require('cors');
+require('dotenv').config({ path: './.env' }); // Поддержка переменных окружения
 
+// Инициализация приложения
 const app = express();
 
-app.use(express.json());
-app.use(cors());
+// Middleware
+app.use(express.json()); // Для работы с JSON-запросами
+app.use(cors()); // Поддержка кросс-доменных запросов
 
-// Morgan logger
-app.use(morgan('dev'));
-
-// Winston logger
+// Логирование запросов для отладки
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url}`);
+  console.log(`${req.method} ${req.url}`);
   next();
 });
 
-// MongoDB configuration from .env file
-const mongoURI = process.env.MONGO_URI;
+// Подключение к MongoDB
+console.log('MongoDB URI:', process.env.MONGO_URI);
+const mongoURI = process.env.MONGO_URI; // URI для подключения из .env файла
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Failed to connect to MongoDB', err));
+  .catch((err) => {
+    console.error('Failed to connect to MongoDB', err);
+    process.exit(1); // Завершает процесс, если не удалось подключиться
+  });
 
-// User model
+// Модель пользователя
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }
@@ -36,38 +35,42 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-// User registration route
+// Маршрут для регистрации пользователя
 app.post('/register', async (req, res) => {
   const { email, password } = req.body;
+  console.log('Received registration request:', email, password); // Логируем данные для отладки
 
   try {
-    // Check if the user already exists
+    // Проверка на существующего пользователя
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('User already exists:', email); // Отладка: пользователь уже существует
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash the password
+    // Хэшируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Hashed password:', hashedPassword); // Логируем хэшированный пароль
 
-    // Create a new user
+    // Создаём нового пользователя
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
+    console.log('User registered successfully'); // Логируем успешную регистрацию
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error registering user', error: error.message });
+    // Логируем полную информацию об ошибке
+    console.error('Error registering user:', error); 
+    res.status(500).json({ 
+      message: 'Error registering user', 
+      error: error.message,
+      stack: error.stack // Возвращаем стек вызовов для отладки
+    });
   }
 });
 
-app.use('/api/profile', profileRoutes);
-
-// Root route for '/'
-app.get('/', (req, res) => {
-  res.send('Welcome to the Business Card App!');
-});
-
-const PORT = process.env.PORT || 5000;
+// Запуск сервера
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
